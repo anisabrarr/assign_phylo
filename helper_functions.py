@@ -71,10 +71,94 @@ def neighbor_joining(distances: np.ndarray, labels: list) -> Node:
 
     """
     
-    self.tree = Node()
+    distance_matrix = distances.copy()
 
-    raise NotImplementedError()
+    current_nodes = [Node(label, None, 0, None, 0) for label in labels]
 
+    internal_node_counter = 0
+
+    while len(current_nodes) > 2:
+        num_nodes = len(current_nodes)
+
+        # total distance from each node to every other node
+        total_distances = distance_matrix.sum(axis=1)
+
+        q_matrix = (
+            (num_nodes - 2) * distance_matrix
+            - total_distances[:, None]
+            - total_distances[None, :]
+        )
+        np.fill_diagonal(q_matrix, np.inf)  # a node can't be joined with itself
+
+        # find the pair of nodes with the smallest Q value
+        smallest_position = np.argmin(q_matrix)
+        first_index, second_index = np.unravel_index(
+            smallest_position, q_matrix.shape
+        )
+
+        # branch lengths from each of the pair to their new parent
+        distance_between_pair = distance_matrix[first_index, second_index]
+        first_branch_length = distance_between_pair / 2 + (
+            total_distances[first_index] - total_distances[second_index]
+        ) / (2 * (num_nodes - 2))
+        second_branch_length = distance_between_pair - first_branch_length
+
+        # make a new parent node with the pair as its children
+        new_parent_node = Node(
+            f"node_{internal_node_counter}",
+            current_nodes[first_index],
+            first_branch_length,
+            current_nodes[second_index],
+            second_branch_length,
+        )
+        internal_node_counter += 1
+
+        # distance from the new parent to every node in the matrix
+        distance_to_new_parent = (
+            distance_matrix[first_index, :]
+            + distance_matrix[second_index, :]
+            - distance_between_pair
+        ) / 2
+
+        # what nodes go onto next round
+        remaining_positions = [
+            position
+            for position in range(num_nodes)
+            if position != first_index and position != second_index
+        ]
+        num_remaining = len(remaining_positions)
+
+        # build smaller matric
+        updated_matrix = np.zeros((num_remaining + 1, num_remaining + 1))
+
+        # old distances between the surviving nodes go in the top-left
+        updated_matrix[:num_remaining, :num_remaining] = distance_matrix[
+            np.ix_(remaining_positions, remaining_positions)
+        ]
+        # new parent's distances go in the last row and last column
+        updated_matrix[num_remaining, :num_remaining] = (
+            distance_to_new_parent[remaining_positions]
+        )
+        updated_matrix[:num_remaining, num_remaining] = (
+            distance_to_new_parent[remaining_positions]
+        )
+        distance_matrix = updated_matrix
+
+        # update the node list 
+        current_nodes = [
+            current_nodes[position] for position in remaining_positions
+        ] + [new_parent_node]
+
+    # joining remaining nodes under the root each at half the remaining distance 
+    half_of_final_distance = distance_matrix[0, 1] / 2
+    root_node = Node(
+        "ROOT",
+        current_nodes[0],
+        half_of_final_distance,
+        current_nodes[1],
+        half_of_final_distance,
+    )
+    return root_node
 
 def plot_nj_tree(tree: Node, ax: Axes = None, **kwargs) -> None:
     """A function for plotting neighbor joining phylogeny dendrogram.
