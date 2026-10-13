@@ -2,6 +2,7 @@
 import numpy as np
 from copy import deepcopy
 from matplotlib.axes import Axes
+import matplotlib.pyplot as plt
 
 
 class Node:
@@ -183,6 +184,56 @@ def plot_nj_tree(tree: Node, ax: Axes = None, **kwargs) -> None:
     >>> fig.savefig("example.png")
 
     """
+
+    if ax is None:
+        ax = plt.gca()
+
+    # next free row for a leaf
+    next_leaf_row = 0
+
+    def draw_subtree(node: Node, node_x: float) -> float:
+        nonlocal next_leaf_row
+
+        is_leaf = node.left is None and node.right is None
+
+        # give to next row and write the row
+        if is_leaf:
+            leaf_y = next_leaf_row
+            next_leaf_row += 1
+
+            ax.text(
+                node_x,
+                leaf_y,
+                f"  {node.name}",
+                fontsize=12,
+                verticalalignment="center",
+            )
+            return leaf_y
+
+        # draw both children
+        left_child_x = node_x + node.left_distance
+        right_child_x = node_x + node.right_distance
+
+        left_child_y = draw_subtree(node.left, left_child_x)
+        right_child_y = draw_subtree(node.right, right_child_x)
+
+        # horizontal lines
+        ax.plot([node_x, left_child_x], [left_child_y, left_child_y], color="k", lw=1.5)
+        ax.plot([node_x, right_child_x], [right_child_y, right_child_y], color="k", lw=1.5)
+
+        # vertical line
+        ax.plot([node_x, node_x], [left_child_y, right_child_y], color="k", lw=1.5)
+
+        return (left_child_y + right_child_y) / 2
+
+    # start at root
+    root_y = draw_subtree(tree, 0.0)
+
+    ax.plot([-0.2, 0], [root_y, root_y], color="k", lw=1.5)
+
+    ax.set_xlabel("Distance")
+    for side in ["top", "right"]:
+        ax.spines[side].set_visible(False)
 
     return ax
 
