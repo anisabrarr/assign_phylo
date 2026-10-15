@@ -188,6 +188,9 @@ def plot_nj_tree(tree: Node, ax: Axes = None, **kwargs) -> None:
     if ax is None:
         ax = plt.gca()
 
+    leaf_colors = kwargs.get("leaf_colors", {})
+    label_fontsize = kwargs.get("fontsize", 12)
+
     # next free row for a leaf
     next_leaf_row = 0
 
@@ -205,7 +208,8 @@ def plot_nj_tree(tree: Node, ax: Axes = None, **kwargs) -> None:
                 node_x,
                 leaf_y,
                 f"  {node.name}",
-                fontsize=12,
+                fontsize=label_fontsize,
+                color=leaf_colors.get(node.name, "k"),
                 verticalalignment="center",
             )
             return leaf_y
@@ -317,6 +321,17 @@ def reroot_tree(original_tree: Node, outgroup_node: Node) -> Node:
     return new_root
 
 
+def _count_leaves(node: Node) -> int:
+    """Count how many leaves are in the subtree under this node."""
+    # empty spot contains no leaves
+    if node is None:
+        return 0
+    # leaf counts as one
+    if node.left is None and node.right is None:
+        return 1
+    return _count_leaves(node.left) + _count_leaves(node.right)
+
+
 def sort_children_by_leaves(tree: Node) -> None:
     """Sort the children of a tree by their corresponding number of leaves.
 
@@ -328,7 +343,17 @@ def sort_children_by_leaves(tree: Node) -> None:
         The root node of the tree.
 
     """
-    raise NotImplementedError()
+    if tree is None or (tree.left is None and tree.right is None):
+        return
+
+    # sort everything further down first
+    sort_children_by_leaves(tree.left)
+    sort_children_by_leaves(tree.right)
+
+    # if left leaves > right leaves, swap
+    if _count_leaves(tree.left) > _count_leaves(tree.right):
+        tree.left, tree.right = tree.right, tree.left
+        tree.left_distance, tree.right_distance = tree.right_distance, tree.left_distance
 
 
 def plot_nj_tree_radial(tree: Node, ax: Axes = None, **kwargs) -> None:
